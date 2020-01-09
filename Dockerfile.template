@@ -1,0 +1,12 @@
+FROM balenalib/%%RESIN_MACHINE_NAME%%-alpine:edge
+
+ENV DBUS_SYSTEM_BUS_ADDRESS unix:path=/host/run/dbus/system_bus_socket
+
+RUN apk add python3 \
+    networkmanager \
+    py3-gobject3 \
+    py3-dbus
+
+COPY . .
+
+CMD ["python", "keep-wifi-up.py"]

@@ -9,6 +9,8 @@ from gi.repository import NM, GLib
 AWAIT_INITIAL_CONNECTION_INTERVAL = 5
 RECHECK_INTERVAL = 60
 
+APPNAME = "keep-wifi-up"
+
 class State:
     def __init__(self):
         self.main_loop = GLib.MainLoop()
@@ -33,21 +35,24 @@ def get_active_wifi_connection(nm_client):
         for device in devices:
             if device.get_device_type() == NM.DeviceType.WIFI:
                 return active_connection
-    
+
     return None
 
 def store_connection(state, active_connection):
     state.connection_id = active_connection.get_id()
     state.connection_uuid = active_connection.get_uuid()
-    print("Connection ID: {} [{}]".format(state.connection_id, state.connection_uuid))
+    log("Active connection: {} [{}]".format(state.connection_id, state.connection_uuid))
 
 def update_connection(state, active_connection):
     uuid = active_connection.get_uuid()
     if state.connection_uuid != uuid:
         state.connection_uuid = uuid
         state.connection_id = active_connection.get_id()
-        print("New connection ID:", state.connection_id)
-        print("New UUID:", state.connection_uuid)
+        log("New connection ID: {}".format(state.connection_id))
+        log("New UUID: {}".format(state.connection_uuid))
+    else:
+        log("Still active...")
+
 
 def get_and_store_initial_wifi_connection(state):
     active_connection = get_active_wifi_connection(state.nm_client)
@@ -62,7 +67,7 @@ def get_and_store_initial_wifi_connection(state):
         return
 
     if state.await_initial_connection == False:
-        print("Awaiting active WiFi connection")
+        log("Awaiting active WiFi connection")
         state.await_initial_connection = True
 
     GLib.timeout_add_seconds(
@@ -79,14 +84,14 @@ def check_for_active_connection(state):
         state.disconnected_checks = 0
     else:
         if state.disconnected_checks == 0:
-            print("Disconnected")
+            log("Disconnected")
         state.disconnected_checks += 1
         if state.disconnected_checks == 2:
             reactivate_connection(state)
         elif state.disconnected_checks == 3:
             restart_network_manager(state)
         elif state.disconnected_checks == 4:
-            print("Network could be down...")
+            log("Network could be down...")
 
     GLib.timeout_add_seconds(
         RECHECK_INTERVAL,
@@ -97,12 +102,12 @@ def check_for_active_connection(state):
 def activate_connection_callback(client, result, _data):
     try:
         client.activate_connection_finish(result)
-        print("Successfully activated")
+        log("Successfully activated")
     except Exception as e:
-        print("Failed activating connection: {}".format(e))
+        log("Failed activating connection: {}".format(e))
 
 def reactivate_connection(state):
-    print("Reactivate {}".format(state.connection_id))
+    log("Reactivate {}".format(state.connection_id))
 
     connection = state.nm_client.get_connection_by_uuid(state.connection_uuid)
 
@@ -116,11 +121,14 @@ def reactivate_connection(state):
     )
 
 def restart_network_manager(state):
-    print("Restarting NetworkManager...")
+    log("Restarting NetworkManager...")
     system_bys = dbus.SystemBus()
     systemd = system_bys.get_object("org.freedesktop.systemd1", "/org/freedesktop/systemd1")
     systemd_manager = dbus.Interface(systemd, "org.freedesktop.systemd1.Manager")
     systemd_manager.RestartUnit("NetworkManager.service", "fail")
+
+def log(msg):
+    print("[{}] {}".format(APPNAME, msg))
 
 def main():
     state = State()

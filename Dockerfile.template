@@ -4,6 +4,8 @@ ENV DBUS_SYSTEM_BUS_ADDRESS unix:path=/host/run/dbus/system_bus_socket
 
 RUN install_packages python3 python3-bottle python3-gi python3-dbus libnm-dev
 
+WORKDIR /usr/src/app
+
 COPY . .
 
 CMD ["python3", "serve.py"]

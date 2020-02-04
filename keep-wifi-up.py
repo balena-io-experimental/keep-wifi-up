@@ -6,10 +6,11 @@ import gi
 gi.require_version("NM", "1.0")
 from gi.repository import NM, GLib
 
+import logging
+import logging.handlers
+
 AWAIT_INITIAL_CONNECTION_INTERVAL = 5
 RECHECK_INTERVAL = 60
-
-APPNAME = "keep-wifi-up"
 
 class State:
     def __init__(self):
@@ -127,10 +128,35 @@ def restart_network_manager(state):
     systemd_manager = dbus.Interface(systemd, "org.freedesktop.systemd1.Manager")
     systemd_manager.RestartUnit("NetworkManager.service", "fail")
 
+def init_logging():
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
+    file_msg_format = "[%(asctime)s] %(message)s"
+    console_msg_format = "[keep-wifi-up] %(message)s"
+
+    file_handler = logging.handlers.RotatingFileHandler(
+        "/data/keep-wifi-up.log",
+        maxBytes=20971520,
+        backupCount=1
+    )
+    file_formatter = logging.Formatter(file_msg_format)
+    file_handler.setFormatter(file_formatter)
+    file_handler.setLevel(logging.INFO)
+    logger.addHandler(file_handler)
+
+    stream_handler = logging.StreamHandler()
+    stream_handler.setLevel(logging.INFO)
+    stream_formatter = logging.Formatter(console_msg_format)
+    stream_handler.setFormatter(stream_formatter)
+    logger.addHandler(stream_handler)
+
 def log(msg):
-    print("[{}] {}".format(APPNAME, msg))
+    logging.info(msg)
 
 def main():
+    init_logging()
+
     state = State()
 
     get_and_store_initial_wifi_connection(state)
